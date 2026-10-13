@@ -24,3 +24,16 @@ A multi-tenant SaaS platform lets enterprise customers manage how their users re
 - Two edits to the same record, both made from the same starting point, should end with one applied and one refused — never both silently merged or lost.
 - A refused request should make clear whether it was refused because the caller was not allowed, or because the record had already changed since it was read.
 - The checks under `tests/` exercise these behaviours once the stack reports it is ready.
+
+## Changes made (security & concurrency hardening)
+
+**Findings:** routes ignored the caller's identity; queries filtered only by `user_id` (cross-tenant reach); `PUT` ignored `version` (lost updates); errors had no machine-readable reason.
+
+**Fixes**
+- `app/services/authorization.py`: pure rules. `user` -> own record only; `admin` -> any user in own tenant; no role crosses tenants.
+- Tenant comes only from the signed JWT; every SQL query filters `tenant_id`; request bodies reject unknown fields (`tenant_id`, `version`).
+- Optimistic locking: `GET` returns `ETag`; `PUT` requires `If-Match`. A single atomic `UPDATE ... WHERE version = N` bumps the version, so of two simultaneous edits exactly one succeeds.
+- One error envelope `{error: {code, message, hint, details}}`: 401 `AUTHENTICATION_REQUIRED`, 403 `SELF_ONLY` / `CROSS_TENANT_ACCESS`, 412 `VERSION_CONFLICT` (with `current_version`), 428 `VERSION_REQUIRED`, 422 `VALIDATION_ERROR`.
+- Cross-tenant and non-existent users return the same 403, so ids in other tenants cannot be probed.
+
+**Next steps:** token expiry (`exp`), roles from the DB instead of the token, Postgres RLS and a composite FK `(tenant_id, user_id)`, audit log.

@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from app.middleware.error_handlers import register_error_handlers
 from app.routers import preferences
 
 app = FastAPI(
@@ -7,6 +9,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+register_error_handlers(app)
 app.include_router(preferences.router, prefix="/api/v1")
 
 

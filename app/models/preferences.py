@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_validator
 from typing import Optional
 from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class NotificationPreferences(BaseModel):
@@ -14,6 +15,9 @@ class NotificationPreferences(BaseModel):
 
 
 class PreferencesUpdateRequest(BaseModel):
+    # Unknown fields (tenant_id, user_id, version...) are rejected, never silently applied.
+    model_config = ConfigDict(extra="forbid")
+
     email_enabled: Optional[bool] = None
     sms_enabled: Optional[bool] = None
     push_enabled: Optional[bool] = None
@@ -24,7 +28,7 @@ class PreferencesUpdateRequest(BaseModel):
     def validate_frequency(cls, v):
         allowed = {"realtime", "daily", "weekly", "never"}
         if v is not None and v not in allowed:
-            raise ValueError(f"frequency must be one of {allowed}")
+            raise ValueError(f"frequency must be one of {sorted(allowed)}")
         return v
 
 
@@ -34,3 +38,4 @@ class PreferencesResponse(BaseModel):
     sms_enabled: bool
     push_enabled: bool
     frequency: str
+    version: int
